@@ -1,0 +1,358 @@
+---
+title: 'NU-IT Research Computing Services: Regression Models with R - Day 2'
+subtitle: By Diego Gomez-Zara
+output:
+  html_document:
+    df_print: paged
+---
+
+Today, we will focus on detecting violations of standard linear regression assumptions such as **normality**, **homoscedasticity**, and **linearity**. We describe methods to address these violations through data transformations and other methods. In addition to testing these model assumptions, we will discuss other data problems that adversely affect regression results: *outliers*, *influential observations*, and *multi-collinearity*.
+
+The following assumptions underlie the regression model, in particular about the random errors:
+
+1.  **Normality**: The errors are normally distributed.
+2.  **Homoscedasticity**: The errors have a constant variance. 
+3.  **No outliers**: No observations deviate significantly from the specified model.
+4.  **Linearity**: The relationship between the predictor (x) and the outcome (y) is assumed to be linear.
+5.  **Independence**: The errors are statistically independent.
+
+If you have not installed the packages, please run this command.
+```{r message=FALSE,results='hide'}
+#install.packages("dplyr","MASS","car")
+```
+
+We start loading the libraries
+```{r message=FALSE,results='hide'}
+library(dplyr)
+library(MASS)
+library(car)
+```
+
+```{r}
+rm(list = ls())
+set.seed(40)
+```
+
+We import the data, convert the columns, and scale the data.
+
+```{r}
+data <- read.csv("insurance.csv")
+data$gender <- as.factor(data$gender)
+data$gender <- relevel(data$gender, ref = "male")
+data$smoker <- as.factor(data$smoker)
+data$smoker <- relevel(data$smoker, ref = "no")
+data$region <- as.factor(data$region)
+data <- data %>% mutate_if(function(col) is.numeric(col) & !all(col == .$charges), scale)
+```
+
+Now, we create the regression model:
+
+```{r}
+model <- lm(charges ~ age + bmi + children + gender + smoker + region, data)
+summary(model)
+```
+
+### Exercise instructions
+You will run the following commands using the dataset [Wine Quality Data Set](https://archive.ics.uci.edu/ml/datasets/wine+quality). The goal is to measure wine's quality based on its properties. The data comes from [Cortez et al., 2009].
+
+
+```{r}
+wine.data <- read.csv("winequality-red.csv")
+wine.data <- wine.data %>% mutate_if(function(col) is.numeric(col) & !all(col == .$quality), scale)
+```
+
+
+```{r}
+wine.model <- lm(quality ~ ., wine.data)
+summary(wine.model)
+```
+
+
+## 1. Checking normality
+
+**For any fixed value of X, Y is normally distributed.** 
+
+We need to check the errors between the estimated and real Ys. To test the normality assumption on the errors, the recommended method is the normal quantile-quantile plot (called the normal Q-Q plot or simply the normal plot) of the residuals. This is a plot of the quantiles of the residuals versus theoretical standard normal distribution quantiles. If both sets of quantiles came from the same distribution, we should see the points forming a line that's roughly straight.
+
+```{r}
+plot(model, which=2)
+```
+
+We see that the normal plot for \`charges\`\` shows extreme departures in the upper tail. This plot shows the presence of outliers, which are causing non-normality.
+
+```{r}
+hist(data$charges)
+```
+
+Data is highly concentrated on the left side of the plot. The log transformation might help to mitigate the outliers.
+
+```{r}
+hist(log(data$charges))
+```
+
+Now, `charges` looks more normally distributed. We can make a logarithmic transformation in the model to solve this issue and mitigate the outliers.
+
+```{r}
+log.model <- lm(log(charges) ~ age + bmi + children + gender + smoker + region, data)
+plot(log.model, which=2)
+```
+
+We see that the normal plot for `charges` shows more extreme departures in the upper tail than does the normal plot for `log(charges)`. If these outliers are excluded, then the normal plots will be more linear.
+
+### Exercise 1
+Check the Q-Q plot of the `wine.model` object. Should we transform the data?
+```{r}
+plot(wine.model, which=2)
+```
+Print the histogram of the `quality` variable
+```{r}
+hist(wine.data$quality)
+```
+
+## 2. Checking Homoscedasticity
+
+**The variance of residual is the same for any value of X.**
+
+One assumption of linear regressions is that the variance of the errors is the same across observations, and in particular does not depend on the values of the explanatory variables. Violation of the homoscedasticity assumption is a more serious problem than non-normality and can lead to invalid inferences on the regression coefficients.
+
+Homoscedasticity occurs more often in datasets that have a large range between the largest and smallest observed values. While there are numerous reasons why heteroscedasticity can exist, a common explanation is that the error variance changes proportionally with a factor. In some cases, the variance increases proportionally with this factor but remains constant as a percentage. For instance, a 10% change in a number such as 100 is much smaller than a 10% change in a large number such as 100,000. In this scenario, we will expect to see larger residuals associated with higher values.
+
+To test homoscedasticity, we plot the raw residuals against the fitted values. This plot is called the **fitted values plot**. If the residuals spread out evenly forming a roughly parallel band around the zero line then it indicates that the error's standard deviation is constant supporting the homoscedasticity assumption.
+
+```{r}
+plot(model, which=1)
+```
+
+### Box-Cox Transformation
+To solve the homoscedasticity problem, we need to transform the dependent variable (Y) to a normal shape. To determine which transformation the dependent variable should take, we use the [Box-Cox Transformation](https://rss.onlinelibrary.wiley.com/doi/abs/10.1111/j.2517-6161.1964.tb00553.x). Based on a specific value $\lambda$, we will determine the required transformation for the dependent variable:
+
+<img src="https://wikimedia.org/api/rest_v1/media/math/render/svg/b565ae8f1cce1e4035e2a36213b8c9ce34b5029d">
+
+As a result, the dependent variable can require a logarithmic, square root, or inverse transformations. The following table shows the most-common Box-Cox transformations:
+
+<img src="https://sixsigmastudyguide.com/wp-content/uploads/2019/11/box3.png">
+
+R automatically plots the log-Likelihood as a function of possible $\lambda$ values. The plot indicates both the value that maximizes the log-likelihood, as well as a confidence interval for the lambda value that maximizes the log-likelihood.
+
+```{r}
+boxcox(model, plotit = TRUE)
+```
+
+The value is very close to zero (0). Using the logarithmic transformation is valid and it allows to keep the residuals' variance constant among the independent values. 
+
+If we want to be more specific...
+
+```{r}
+boxcox(model, lambda = seq(0, 0.2, by = 0.05), plotit = TRUE)
+```
+
+According to this transformation, the transformation for `charges` should be $(y ^{0.14} - 1)/0.14$. We can run this new transformation and observe the results.
+
+```{r}
+boxcox.model = lm((((charges ^ 0.14) - 1) / 0.14) ~ age + gender + bmi + children + smoker + region, data)
+summary(boxcox.model)
+```
+
+We can plot the residual errors and the quartiles.
+
+```{r}
+plot(boxcox.model, which=1)
+```
+
+
+### Exercise 2.
+
+Plot the residuals vs fitted values of the `wine.model`. Use the function `plot` with the argument `which=1`. What can you see?
+
+```{r}
+plot(wine.model, which=1)
+```
+Run the Box-Cox regression to check what transformations should be required
+
+```{r}
+boxcox(wine.model, plotit = TRUE)
+```
+The value is close to the unit (1), which means that no transformation should be required ($(y^1-1)/1 \sim y$).
+
+## 3. Checking Outliers
+
+Outliers are observations that deviate significantly from the fitted model, e.g., by more than two or three standard deviations. An outlier has a large residual (the distance between the predicted value and the observed value). Outliers lower the significance of the fit of a statistical model because they do not coincide with the model's prediction.
+
+Outliers should not be deleted without additional inspection. First, they must be checked for validity and should be deleted only if they are erroneous. If they are valid observations then they may indicate model mis-specification. For example, we may be fitting a straight line to data that actually follow a quadratic or an exponential model. Thus an outlier may be useful for revealing a mispecified model.
+
+Let's check first the original model's residuals.
+
+```{r}
+model.res = resid(model)
+```
+
+We can plot the residuals of each observation.
+
+```{r}
+plot(c(1:nrow(data)), model.res, ylab="Residuals", xlab="Observation", main="Residual Plot") 
+```
+
+Now, we check the standard residuals of the logarithmic model
+
+```{r}
+log.model.res = resid(log.model)
+```
+
+We plot each observation's residual.
+
+```{r}
+plot(c(1:nrow(data)), log.model.res, ylab="Residuals", xlab="Observation", main="Residual Plot") 
+```
+
+A rule of thumb is considering as *outliers* observations that have standardized residual larger than 2. We will check which observations have standard residuals bigger than 2.
+
+```{r}
+log.model.res[abs(log.model.res) > 2]
+```
+
+These observations are outliers found in the right side of the charges' distribution. We can check this with the Q-Q plot too.
+
+```{r}
+plot(log.model, which=2,cex.id = 2)
+```
+
+### Exercise 3.
+
+Check for outliers in the `wine.data`. Calculate and assign to the variable `wine.model.residuals` the residuals of the model `wine.model` using the function `resid()`. Then, plot the residuals against the `wine.data` observations.
+
+```{r}
+wine.model.residuals = resid(wine.model)
+plot(c(1:nrow(wine.data)), wine.model.residuals, ylab="Residuals", xlab="Observation", main="Residual Plot") 
+```
+Check for potential outliers using the rule of thumb (std. residuals bigger than 2). How many potential outliers do you see?
+```{r}
+wine.model.residuals[abs(wine.model.residuals) > 2]
+```
+
+### Identifying Influential Observations.
+
+The idea of fitting a model is to capture the overall pattern of variation in the response variable as a function of the predictor variables. So the fit of the model should be determined by the majority of the data and not by a few so-called **influential observations** (also called high leverage observations).
+
+An influential observation is any observation that has a large effect on the slope of a regression line fitting the data. They are generally extreme values. The process to identify an influential observation begins by removing the suspected influential point from the data set. If this removal significantly changes the slope of the regression line, then the point is considered an influential observation.
+
+A common measure of influence is **Cook's Distance**. This is a function of the standardized residuals. Cook's distance for the ith observation measures the effect of deleting that observation on the fitted values of all observations
+
+```{r}
+plot(log.model, which=4)
+```
+
+A rule of thumb is to delete those observations with a Cook distance higher than *4/(number of observations)*.
+
+```{r}
+log.model.cook.distances <- cooks.distance(log.model)
+influential_obs <- log.model.cook.distances[(log.model.cook.distances) > 4/nrow(data)]
+influential_obs <- as.numeric(names(influential_obs))
+```
+
+We create the model without the influential observations
+
+```{r}
+data.without.influential <- data[-influential_obs,]
+log.model.no.outliers <- lm(log(charges) ~ age + bmi + children + gender + smoker + region, data.without.influential)
+```
+
+We plot the distribution of these values without the influential observations.
+
+```{r}
+hist(log(data.without.influential$charges))
+```
+
+We print the model's results
+
+```{r}
+summary(log.model.no.outliers)
+```
+
+We check once again the Q-Q plot
+
+```{r}
+plot(log.model.no.outliers, which=2)
+```
+
+In summary, the model improved (R\^2=0.90) and the coefficients are all significant.
+
+### Exercise 4
+Identify any influential observations in the `wine.data` dataframe by calculating the Cook's Distances. Start first by plotting the graph
+
+```{r}
+plot(wine.model, which=4)
+```
+
+Calculate Cook's distance values of each observation of the model `wine.model` using the function `cooks.distance()`. Then, use the rule of thumb to identify the influential observations.
+```{r}
+wine.model.cook.distances <- cooks.distance(wine.model)
+influential_obs <- wine.model.cook.distances[(wine.model.cook.distances) > 4/nrow(wine.data)]
+influential_obs <- as.numeric(names(influential_obs))
+```
+
+Then, remove the influential observations of the `wine.data` and create a new model
+```{r}
+wine.data.without.influential <- wine.data[-influential_obs,]
+wine.model.no.outliers <- lm(quality ~ ., wine.data.without.influential)
+summary(wine.model.no.outliers)
+```
+
+We check once again the Q-Q plot
+```{r}
+plot(wine.model.no.outliers, which=2)
+```
+Much better!
+
+## 4. Model specification
+The most common type of misspecification is non-linearity. We can check whether the model is correctly specified by plotting the dependent variable and each independent variable. Since the model was built using different independent variables, we need to control the presence of other independent variables while we change variable of the observed independent variable. To do this, we plot the **added variable plots**. These plots display the relationship between the dependent variable and one independent variable in the regression model, while holding the other independent variables constant. These plots are also called *partial regression plots.*
+
+To create added variable plots in R, we can use the `avPlots()` function and use it for each numeric variable:
+
+```{r}
+avPlot(log.model.no.outliers,"age")
+avPlot(log.model.no.outliers,"bmi")
+avPlot(log.model.no.outliers,"children")
+```
+
+The x-axis displays a single predictor variable and the y-axis displays the response variable. The blue line shows the association between the predictor variable and the response variable, while holding the value of all other predictor variables constant. The points that are labelled in each plot represent the two observations with the largest residuals and the two observations with the largest partial leverage.
+
+After checking the plots for the logarithmic model, we can see clearly that there is a linear relationship between the numeric variables and the dependent variable `charges`.
+
+## 5. Multicollinearity Diagnostics
+
+Multicollinearity occurs when independent variables in a regression model are correlated. In other words, one independent variable can be used to predict another independent variable. This correlation is a problem because independent variables should be *independent*, and it creates redundant information skewing the results in a regression model. If the degree of correlation between variables is high enough, it can cause problems when you fit the model and interpret the results.
+
+The stronger the correlation, the more difficult it is to change one variable without changing another. It becomes difficult for the model to estimate the relationship between each independent variable and the dependent variable independently because the independent variables tend to change in unison.
+
+Some examples of correlated independent variables are: a person's height and weight, age and sales price of a car, or years of education and annual income. Multicollinearity causes the following two basic types of problems:
+
+-   The coefficient estimates can swing based on which other independent variables are in the model.
+-   The coefficients become very sensitive to small changes in the model.
+-   Multicollinearity reduces the precision of the estimated coefficients, which weakens the statistical power of your regression model.
+
+### Variance Inflation Factors (VIF)
+
+The variance inflation factor (VIF) test identifies correlation between independent variables and the strength of that correlation. A common rule of thumb is to declare multicollinearity if most of the VIF are larger than 10.
+
+```{r}
+car::vif(log.model.no.outliers)
+```
+
+In this example, the VIF scores are lower than 2.0. Therefore, there are no signs of multicollinearity with this model.
+
+
+### Exercise 5
+Check whether the `wine.model.no.outliers` has multicollinearity. 
+
+```{r}
+car::vif(wine.model.no.outliers)
+```
+
+## Resources
+
+-   [Tamhane, A. C. (2020). Predictive Analytics: Parametric Models for Regression and Classification Using R. John Wiley & Sons.](https://onlinelibrary-wiley-com.turing.library.northwestern.edu/doi/book/10.1002/9781119464761)
+-   [Linear Regression Assumptions and Diagnostics in R: Essentials](http://www.sthda.com/english/articles/39-regression-model-diagnostics/161-linear-regression-assumptions-and-diagnostics-in-r-essentials)
+-   [Statistical tools for high-throughput data analysis](http://www.sthda.com/english/)
+-   [R Regression Models](https://iqss.github.io/dss-workshops/Rmodels.html)
+-   [Multicollinearity in Regression Analysis: Problems, Detection, and Solutions](https://www.statisticshowto.com/multicollinearity/)
+-   [Statistics How To](https://www.statisticshowto.com/multicollinearity/)

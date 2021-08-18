@@ -1,0 +1,265 @@
+---
+title: 'NU-IT Research Computing Services: Regression Models with R - Day 3'
+subtitle: By Diego Gomez-Zara
+output: html_notebook
+---
+
+Today we will discuss methods for predictor variable selection. We often have a choice of many predictors and the goal is to select a small subset of them that provides a parsimonious yet well-fitting and powerful predictive model. A parsimonious model has fewer data requirements, reduced computational complexity, improved system representation, transparency, and insightfulness.
+
+We will use two examples to illustrate the methods presented in this session.
+
+1. **Healthcare**: This dataset has 6 predictors and a target column (`charges`). There are some categorical predictors that did not increase the coefficient of determination. We will check which subset is the best to predict individuals' charges.
+2. **Wine dataset**: It has 12 predictors and a target column (`quality`). It is very likely that some predictors depend among each other. Your goal is to find a small subset of columns that provide a good predictive model. 
+
+Given $m$ variables in a dataset, we can *add* or *remove* a predictor in the linear regresison model. Therefore, we can build $2^m-1$ models excluding the null model (no predcitors). For example, we can build $2^{12}-1=4095$ models for the wine dataset. 
+
+
+```{r message=FALSE,results='hide'}
+library(dplyr)
+library(leaps)
+library(car)
+library(meifly)
+```
+
+We load the Healthcare insurace dataset as `health.data`.
+```{r}
+health.data <- read.csv("insurance.csv")
+health.data$gender <- as.factor(health.data$gender)
+health.data$gender <- relevel(health.data$gender, ref = "male")
+health.data$smoker <- as.factor(health.data$smoker)
+health.data$smoker <- relevel(health.data$smoker, ref = "no")
+health.data$region <- as.factor(health.data$region)
+health.data <- health.data %>% mutate_if(function(col) is.numeric(col) & !all(col == .$charges), scale)
+```
+
+We do the same for the Wine dataset as `wine.data`.
+```{r}
+wine.data <- read.csv("winequality-red.csv")
+wine.data <- wine.data %>% mutate_if(function(col) is.numeric(col) & !all(col == .$quality), scale)
+```
+
+## Best Subset Selection
+
+* **$R^2$ Criterion**: This criterion compares models based on their $R^2$ values, which are measures of the goodness of fit. Since $R^2$ can only increase by adding more variables to the model, it is trivially maximized by including all the available variables. In general, the $R^2$ criterion tends to produce models that are too large. Furthermore, although these models provide good fits, they do not necessarily give good predictions.
+* **Adjusted $R^2$ Criterion**: This criterion is a modification of the previous one and incorporates a penalty for the number of variables included in the model. Thus, maximizing the adjusted $R^2$ takes into account reducing the mean squared error and the number of variables included in the model.
+* **Akaike’s information criterion (AIC)**: Given a collection of models for the data, AIC estimates the quality of each model relative to each of the other models. It estimates the relative amount of *information lost *by a given model: the less information a model loses, the higher the quality of that model. Minimizing AIC is equivalent to maximizing the expected information in a model subject to a penalty term for the number of variables in the model. The formula  $n\ln(SSE/n)+2(p+1)$, where $n$ is the number of observations, $SSE$ is the error sum of squares, and $p$ the number of predictors. 
+
+To identify find the best model, we will use the function `regsubsets()` from the package `leaps`. This function takes three arguments:
+
+* The linear regression formula. We will use `charges ~ .`, where the dot represents all the other variables.
+* The dataframe
+* Searching method (`method`): `exhaustive` searches for all the models.
+* Number of subsets of each size to return (`nbest`).  
+
+```{r}
+regsubsets.out <- regsubsets(charges ~ ., health.data, method = "exhaustive", nbest=2)
+```
+
+We save the `summary()` of this object and print it as a table. We will get the variables that are included in the best of size `n`.
+
+```{r}
+summary.out <- summary(regsubsets.out)
+as.data.frame(summary.out$outmat)
+```
+
+The package `leaps` provides a plot with the variables selected and their respective Adjusted $R^2$. Variables that have black boxes at the highest Y-axis value.
+
+```{r}
+plot(regsubsets.out, scale = "adjr2", main = "Adjusted R^2")
+```
+
+Another way of presenting the same information for adjusted $R^2$. The model with variables (counting dummy variables seprately) at the highest y-position has the highest adjusted $R^2$.
+
+```{r}
+subsets(regsubsets.out, statistic="adjr2", legend = FALSE, min.size = 5, main = "Adjusted R^2")
+```
+
+We calculate the maximum $R^2$ of all these models. 
+
+```{r}
+print(max(summary.out$adjr2))
+```
+
+What is the model with the highest $R^2$?
+
+```{r}
+which.max(summary.out$adjr2)
+```
+
+The model 11 has the highest $R^2$, and by calling `summary.out` we can identify the selected variables. The variables marked with `TRUE` are the chosen ones. 
+
+```{r}
+summary.out$which[11,]
+```
+
+We create the model according to these variables
+
+```{r}
+best.model <- lm(charges ~ age + bmi + children + smoker + region, health.data)
+summary(best.model)
+```
+
+### Exercise 1
+
+Find the best model for the `wine.data` using the function `regsubsets()`. Assign the results to the variable `regsubsets.out.` 
+
+```{r}
+
+```
+
+Assign the summary of the object `regsubsets.out` to the variable `summary.out`. Then, print as a dataframe the object `summary.out$outmat`.
+
+```{r}
+
+```
+
+Plot the Adjusted $R^2$ from `regsubsets.out` using `scale = "adjr2`.
+
+```{r}
+
+```
+
+Identify the model with the hightest adj $R^2$. You can use the function `which.max()` on `summary.out$adjr2`
+
+```{r}
+
+```
+
+Identify the selected predictors of the model with the highest $R^2$ using the command `summary.out$which`.
+
+```{r}
+
+```
+
+Create the linear regression model `wine.best.model` using the function `lm()` with the best subset found. Then, print the results using `summary()`.
+
+```{r}
+
+```
+
+### Using the package `meifly`
+
+Another package available is `meifly.` It is used for exploratory model analysis and identify good models. The function `findall()` will calculate all the possible models. It has three main parameters:
+
+* y: the dependent variable
+* x: the predictors dataset
+* method: the method used to fit the model. In this case `lm`
+
+We create all the possible models with $p$ predictors. In the `health.data`, we have 6 predictors. Therefore, there can be $2^6-1=63$ possible models to build. 
+
+```{r, results='hide'}
+fitall.out <- fitall(y = health.data$charges,
+                     x = health.data[,c("age","gender","bmi","children","smoker","region")],
+                     method="lm")
+```
+
+The variable `fitall.out` is a list of the 63 possible linear regression models. We can use the function `summary()` to have the metrics of each model.
+
+```{r}
+summary.fitall.out <- summary(fitall.out)
+summary.fitall.out
+```
+
+We use the function `which.max()` to identify the model with the maximum Adj. $R^2$ possible.
+```{r}
+which.max(summary.fitall.out$adjR2)
+```
+
+The model 61 has the highest adjusted $R^2$: 0.7496. We can get the model by calling the element 61 of the object ``fitall.out`.
+
+```{r}
+fitall.out[61]
+```
+This will return the object `lm()`. We can see the results using the function `summary()`
+
+```{r}
+summary(fitall.out[[61]])
+```
+
+## Exercise 2
+Create the best model possible using `fitall()`. The `wine.data` has 11 predictors, and we can get $2^11-1=2047$ models. Assign the results to the variable `fitall.out()`.
+
+```{r,results='hide'}
+
+```
+
+Use the function `summary()` to have all models' metrics.
+
+```{r}
+
+```
+
+Use the function `which.max()` to identify the model with the maximum Adj. $R^2$ possible.
+```{r}
+which.max(summary.fitall.out$adjR2)
+```
+
+Get the identified model with the highest adjusted $R^2$. You can get the element by indexing the object `fitall.out`.
+
+```{r}
+
+```
+This will return the object `lm()`. We can see the results using the function `summary()`
+
+```{r}
+
+```
+
+## Stepwise Regression
+
+This technique selects a single model by entering or removing predictors in a stepwise manner (i.e., one at a time) according to a set of rules. Stepwise regression does not evaluate all models and does not optimize some well-defined criterion of which model is better, as does the best subset selection method. There are two basic versions of stepwise regression: 
+
+* **Forward**: This version starts from the null model and enters variables one at a time. It proceeds only in one direction with no option of removing the previously entered variables.
+* **Backward**: This version starts from the full model and removes variables one at a time. It proceeds only in one direction with no option of entering the previously removed variables.
+
+The `lm.step()` function in R uses the AIC criterion. The criteria here is *the lower the better*.
+
+We start with backward stepwise selection. This method will drop variables until the AIC can not be minimized more. The final model is the one selected by this technique. We use the function `step()` to run this procedure. The parameters are:
+
+* The linear model. We will use the full model here (`lm(log(charges) ~ ., health.data)`).
+* Direction: The mode of stepwise search. It can be either `backward` or `forward`.
+
+Now, we will create the object `backward.selection` to perform this process.
+
+```{r}
+backward.selection <- step(lm(log(charges) ~ ., health.data), direction="backward")
+```
+
+No variables were removed. The full model has $AIC=-2162.05$ and the model without the variable `gender` has $AIC=-2154.46$ The lower the better ($-2162.05 < -2154.46$), so the method selects the full model as the best.
+
+We will try now the **forward stepwise selection**. Here, we start with the null model and start adding variables until finding the lowest *AIC*. We create a null model `min.model` using only the intercept (`lm(log(charges) ~ 1, health.data)`). We need to give a reference to the method, so we add the formula of the full moder in paramater `scope`.
+
+```{r}
+min.model <- lm(log(charges) ~ 1, health.data)
+forward.selection <- step(min.model, direction="forward", scope = ~ age + gender + bmi + children + smoker + region)
+forward.selection
+```
+
+As well as backward stepwise selection, this method selects the full model as the best one.
+
+### Exercise 3
+
+Run backward and forward stepwise selection for `wine.data` and its regression models.
+
+Create here the backward step and assign it to `backward.selection`, which is model the best found?
+```{r}
+
+```
+
+Now, create the forward stepwise selector. Remember to update the dataframe, the formula, and the dependent variable (`quality`).
+```{r}
+
+```
+
+Compare the models and see if they are the same:
+```{r}
+backward.selection$call
+forward.selection$call
+```
+
+## More resources
+
+* [Tamhane, A. C. (2020). Predictive Analytics: Parametric Models for Regression and Classification Using R. John Wiley & Sons.](https://onlinelibrary-wiley-com.turing.library.northwestern.edu/doi/book/10.1002/9781119464761)
+* [All subset regression with leaps, bestglm, glmulti, and meifly](https://rstudio-pubs-static.s3.amazonaws.com/2897_9220b21cfc0c43a396ff9abf122bb351.html)
+* [Stepwise Regression Essentials in R](http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/154-stepwise-regression-essentials-in-r/)
+

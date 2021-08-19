@@ -191,7 +191,7 @@ Use the function `summary()` to have all models' metrics.
 
 Use the function `which.max()` to identify the model with the maximum Adj. $R^2$ possible.
 ```{r}
-which.max(summary.fitall.out$adjR2)
+
 ```
 
 Get the identified model with the highest adjusted $R^2$. You can get the element by indexing the object `fitall.out`.
@@ -253,8 +253,7 @@ Now, create the forward stepwise selector. Remember to update the dataframe, the
 
 Compare the models and see if they are the same:
 ```{r}
-backward.selection$call
-forward.selection$call
+
 ```
 
 ## More resources

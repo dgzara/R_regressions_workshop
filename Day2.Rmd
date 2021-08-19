@@ -101,12 +101,12 @@ We see that the normal plot for `charges` shows more extreme departures in the u
 ### Exercise 1
 Check the Q-Q plot of the `wine.model` object. Should we transform the data?
 ```{r}
-plot(wine.model,which=2)
+
 ```
 
 Print the histogram of the `quality` variable
 ```{r}
-hist(wine.data$quality)
+
 ```
 
 ## 2. Checking Homoscedasticity
@@ -165,12 +165,12 @@ plot(boxcox.model, which=1)
 Plot the residuals vs fitted values of the `wine.model`. Use the function `plot` with the argument `which=1`. What can you see?
 
 ```{r}
-plot(wine.model, which=1)
+
 ```
 Run the Box-Cox regression to check what transformations should be required
 
 ```{r}
-boxcox.results <- boxcox(wine.model)
+
 ```
 The value is close to the unit (1), which means that no transformation should be required ($(y^1-1)/1 \sim y$).
 
@@ -222,13 +222,12 @@ plot(log.model, which=2,cex.id = 2)
 Check for outliers in the `wine.data`. Calculate and assign to the variable `wine.model.residuals` the residuals of the model `wine.model` using the function `resid()`. Then, plot the residuals against the `wine.data` observations.
 
 ```{r}
-wine.model.residuals <- resid(wine.model)
-plot(c(1:nrow(wine.data)), wine.model.residuals, ylab = "Residuals", xlab = "Observation", main="Residual Plot")
+
 ```
 
 Check for potential outliers using the rule of thumb (std. residuals bigger than 2). How many potential outliers do you see?
 ```{r}
-wine.model.residuals[abs(wine.model.residuals) > 2]
+
 ```
 
 ### Identifying Influential Observations.
@@ -237,7 +236,7 @@ The idea of fitting a model is to capture the overall pattern of variation in th
 
 An influential observation is any observation that has a large effect on the slope of a regression line fitting the data. They are generally extreme values. The process to identify an influential observation begins by removing the suspected influential point from the data set. If this removal significantly changes the slope of the regression line, then the point is considered an influential observation.
 
-A common measure of influence is **Cook's Distance**. It is used to estimate the influence of a data point when building a linear regression model. This is a function of the standardized residuals. Cook's distance for the ith observation measures the effect of deleting that observation on the fitted values of all observations
+A common measure of influence is **Cook's Distance**. It is used to estimate the influence of a data point when building a linear regression model. This is a function of the *standardized residuals* and *leverage* (i.e., a measure of how far away the independent variable values of an observation are from those of the other observations.). Cook's distance for the ith observation measures the effect of deleting that observation on the fitted values of all observations
 
 ```{r}
 plot(log.model, which=4)
@@ -267,6 +266,7 @@ hist(log(data.without.influential$charges))
 We print the model's results
 
 ```{r}
+summary(log.model)
 summary(log.model.no.outliers)
 ```
 
@@ -344,6 +344,11 @@ Check whether the `wine.model.no.outliers` has multicollinearity.
 ```{r}
 
 ```
+
+```{r}
+
+```
+
 
 ## Resources
 

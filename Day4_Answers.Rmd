@@ -138,7 +138,7 @@ The interpretation goes as follows:
 * The odds of being admitted increases 2.234 times for each one unit increase in `gpa`.
 * The odds of being admitted for students of `rank2` is 0.51 times that of students of `rank1` (decreases)
 * The odds of being admitted for students of `rank3` is 0.26 times that of students of `rank1` (decreases)
-* The odds of being admitted for students of `rank2` is 0.21 times that of students of `rank1` (decreases)
+* The odds of being admitted for students of `rank4` is 0.21 times that of students of `rank1` (decreases)
 
 ### Exercise 2
 Compute the odds-ratios of the Titanic model. Interpret the odds-ratios:

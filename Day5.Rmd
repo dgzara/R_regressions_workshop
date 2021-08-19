@@ -1,0 +1,238 @@
+---
+title: 'NU-IT Research Computing Services: Regression Models with R - Day 5'
+subtitle: By Diego Gomez-Zara
+output:
+  html_document:
+    df_print: paged
+---
+
+In previous sessions, we covered linear regressions and logistic regressions. The former assumes that the dependent variable is normally distributed, and the latter assumes that the dependent variable is Bernoulli distributed. However, there are many other types of responses that are not necessarily normally or Bernoullli distributed: survival rates, number of individuals in a queue, number of defects in quality controls, number of traffic accidents, etc. These dependent variables have been described with other distributions from the exponential family, such as Gamma, Poisson, Exponential. 
+
+Generalized linear models (GLM) deals with these distribution that belong to the exponential family. It is a flexible generalization of ordinary linear regression that allows for the response variable to have an error distribution other than the normal distribution. GLM models *transform* the response variable using the **link function**, which provides the relationship between the linear predictor ($X\beta$) and the mean of the distribution function ($\mu$). The canonical link function $g()$ allows us to estimate the linear equation $X\beta$, having a more simple way to determine the coefficients $\beta$. You can see the common distributions with typical uses and canonical link functions
+ [here](https://en.wikipedia.org/wiki/Generalized_linear_model#Link_function). 
+ 
+Here you can find a list of the exponential families and their default link function supported by `glm()`.
+
+* `binomial	            (link = "logit")`
+* `gaussian	            (link = "identity")`
+* `Gamma	            (link = "inverse")`
+* `inverse.gaussian     (link = "1/mu^2")`
+* `poisson              (link = "log")`
+* `quasi                (link = "identity", variance = "constant")`
+* `quasibinomial        (link = "logit")`
+* `quasipoisson	        (link = "log")`
+
+
+Today, we will check [**Poisson** regressions](https://en.wikipedia.org/wiki/Poisson_distribution). This distribution expresses the probability of a given number of events occurring in a fixed interval of time or space. The conditions are (1) these events occur with a known constant mean rate, and (2) these events ocurr independently of the time since the last event. This distribution is useful to predict an outcome variable representing *counts* from a set of continuous predictor variables. Some examples are number of patients arriving at the hospital, number of customers entering to a store, number of failures of a machine, etc. Another similar distribution is the [negative binomial distribution](https://en.wikipedia.org/wiki/Negative_binomial_distribution), which (compared to Poisson distribution) allows the variance and the mean be different.
+
+We will load the library for today' session.
+
+```{r,results='hide'}
+library(AER)
+library(MASS)
+```
+
+## 1. Import the datasets
+
+We will use the Ship Accidents dataset, which registers the number of damage incidents of 40 ships. The data are from McCullagh and Nelder (1989) and were also used by Greene (2003, Ch. 21). This data frame contains 40 observations on 5 ship types in 4 vintages and 2 service periods. The features are:
+
+* **type**: factor with levels "A" to "E" for the different ship types.
+* **construction**: factor with levels "1960-64", "1965-69", "1970-74", "1975-79" for the periods of construction.
+* **operation**: factor with levels "1960-74", "1975-79" for the periods of operation.
+* **service**: aggregate months of service.
+
+Let's load the dataset to the environment. 
+```{r}
+data(ShipAccidents)
+```
+
+We check the incidents distribution. We will see that most ships had less than 10 accidents (left-tail), whereas some ships account for most of the accidents (right-tail).
+```{r}
+hist(ShipAccidents$incidents)
+```
+
+### Exercise 1
+Another interesting dataset is `PhDPublications`, which has data on the scientific productivity of PhD students in biochemistry. We will use this dataset for your exercises! 
+```{r}
+
+```
+
+Check the dataset and attributes available by running the command `?PhDPublications`
+```{r}
+
+```
+
+Finally, check the distribution of the parameter `articles`:
+```{r}
+
+```
+
+If you want to explore more datasets with Poisson distributions, check out the following Stackexchange thread  [here](https://stats.stackexchange.com/questions/452710/count-poisson-regression-dataset)
+
+## 2. Creating a GLM
+
+Let's create the model for the `ShipAccidents` dataset using the function `glm()`. This function is already part of the R core library and it does not require additional libraries. We need to define three parameters for this function:
+
+* **Formula**: the mathematical equation $y= \beta_{0} x_{0} + ... + \beta_{n} x_{n}$. For efficiency, we use `incidents ~ .`
+* **Data**: the data frame used to train the model.
+* **Family**: a description of the error distribution and link function to be used in the model
+
+We create the object `ship.model` which takes the formula `incidents ~ .` and the data `ShipAccidents`, and uses the family `poisson`.
+
+```{r}
+ship.model <- glm(incidents ~ ., data = ShipAccidents, family = poisson)
+```
+
+We print the summary:
+```{r}
+summary(ship.model)
+```
+
+We can check how this model predicts the current dataset. Ideally, we should have split the dataset in two parts: **training** and **testing** datasets. The former will be used to train a model, and the second one will be used to test the model.
+
+We calculate the predicted incidents based on the observations that we have using the function `predict()`. The parameters are: the GML model, the dataset, and the type of prediction required. Setting `type=responses` will return the predicted probabilities. (You can check more information by running the command `?predict.glm`).
+
+```{r}
+incidents.predicted <- predict(ship.model, ShipAccidents, type = "response")
+```
+
+Now, we plot the values comparing the fitted values (x-axis) with the real values (y-axis). If the data is close to the diagonal line, it means that the predictions and real values are close. 
+
+```{r}
+plot(incidents.predicted, ShipAccidents$incidents, pch = 16, xlab = "Predicted Incidents ", ylab = "Real Incidents")
+lines(seq(0,max(incidents.predicted)), seq(0,max(incidents.predicted)))
+```
+
+### Exercise 2. 
+
+It's your turn to create a GLM using the `PhDPublications` dataset. The formula will be `articles ~ .` and use the `poisson` family. 
+
+```{r}
+
+```
+
+Print the `publications.model`'s summary and check the coefficients. How do you interpret each coefficient?  
+
+```{r}
+
+```
+
+Predict the students' number of articles using the trained model. Use the function `predict()` with GLM `publications.model` and the dataset `PhDPublications`. Remember to define the `parameter` type as ``response`.
+
+```{r}
+
+```
+
+Finally, plot the values comparing the fitted values (x-axis) with the real values (y-axis). If the data is close to the diagonal line, it means that the predictions and real values are close. You can copy and paste the previous code snippet and replace the parameters.
+
+```{r}
+
+```
+
+## 3. Select the best subset of variables
+
+We will see which is the best subset of variables that can be used for a parsimonious model. We will run a backward stepwise selection using the function `step(),` which we learned on Day 3.
+
+```{r}
+step(ship.model, direction = "backward")
+```
+
+
+According to this approach, no variables should be removed. Therefore, the full model is the best model possible to create with the current available predictors.
+
+### Exercise 3.
+
+Check the best subset of variables for the `publications.model`. Use the function `step()` to perform a backward stepwise selection. Remember to set the parameter `direction = "backward`. 
+
+```{r}
+
+```
+
+If you found a new model, create a new `glm()` object and assign it to `publications.model.2`. You will need to update the formula parameter and set `family = poisson`.
+
+```{r}
+
+```
+
+Is the AIC value better than the prior model? Which one should we select?
+```{r}
+#print(publications.model$aic)
+#print(publications.model.2$aic)
+```
+
+
+## 4. Check for Overdispersion
+Overdispersion is the presence of greater variability in a data set than would be expected based on a given statistical model. When the observed variance is *higher* than the variance of a theoretical model, **overdispersion** has occurred. Conversely, **underdispersion** means that there was less variation in the data than predicted. Overdispersion is a very common feature in applied data analysis because in practice, populations are frequently heterogeneous contrary to the assumptions implicit within widely used simple parametric models. (More information [here](https://en.wikipedia.org/wiki/Overdispersion))
+
+When overdispersion is detected, the data distribution does not correspond to any of the real family of probability distributions. To allow this greater variability in the data than would be expected from the statistical model, we can use [**quasi-likelihood estimation**](https://en.wikipedia.org/wiki/Quasi-likelihood). This estimation describes a function that has similar properties to the log-likelihood function but is not the log-likelihood corresponding to any actual probability distribution. Quasi-likelihood models can be fitted using a straightforward extension of the algorithms used to fit generalized linear models. Another solution is to create a GLM using a *negative binomial distribution*, which might fit better.
+
+The first method to check overdispersion is **dividing the residual deviance with the residual degrees of freedom** of our GLM model. If the ratio considerably larger than 1, then it indicates that we have an overdispersion issue. 
+
+```{r}
+deviance(ship.model)/df.residual(ship.model) 
+```
+Calculating this ratio using our data example, we find that the ratio is close to 3. This means that the model has overdispersion.
+
+The second method is creating a model using the Quasi-Poission distribution and comparing it with the original model. We copy the prior model to create the new model `ship.model.qs` and change the family parameter to `quasipoisson`.
+
+```{r}
+ship.model.qs <- glm(incidents ~ ., data = ShipAccidents, family = quasipoisson)
+```
+
+We check if there is a statistical evidence that the expected variance of the two models is significantly different using a *Chi test*.
+
+```{r}
+pchisq(summary(ship.model.qs)$dispersion * ship.model$df.residual, ship.model$df.residual, lower = F)
+```
+We find that p-value = 6.522837e-08 and is clearly significant (p < 0.05), strengthening our belief that overdispersion is a problem on our model. Therefore, the model `ship.model.qs` should be preferred.
+
+Lastly, the library `AER` offers a dispersion test for Poisson GLMs:
+```{r}
+dispersiontest(ship.model)
+```
+
+The result is significant, demonstrating that this model suffers from overdispersion.
+
+We can create a model using a **negative binomial distribution** using the function `glm.nb` from the library `MASS`. Negative binomial regression is for modeling count variables, usually for over-dispersed count outcome variables.
+
+```{r}
+ship.model.nb <- glm.nb(incidents ~ ., data = ShipAccidents)
+summary(ship.model.nb)
+```
+
+We check if this models suffers overdispersion. 
+```{r}
+deviance(ship.model.nb)/df.residual(ship.model.nb) 
+```
+It is close to the unit, which is much the negative binomial distribution can describe better this particular dataset.
+
+### Exercise 4.
+
+It's your turn!!! Check whether the GLM `publications.model.2` has overdispersion or not. Use the **first** method (ratio of the residual deviance and the residual degrees of freedom). 
+
+```{r}
+
+```
+
+Use here the function `dispersiontest()` to check if this model has overdispersion. 
+```{r}
+
+```
+
+We can create a negative binomial model and see if the fit is better.
+
+```{r}
+
+```
+
+We check if this model has overdispersion
+```{r}
+
+```
+
+## Resources
+
+* [Tamhane, A. C. (2020). Predictive Analytics: Parametric Models for Regression and Classification Using R. John Wiley & Sons.](https://onlinelibrary-wiley-com.turing.library.northwestern.edu/doi/book/10.1002/9781119464761)
+* ["How to do Logistic Regression in R" by Michaelino Mervisiano](https://towardsdatascience.com/how-to-do-logistic-regression-in-r-456e9cfec7cd)
+* [Poissson Regressions | R data analysis examples](https://stats.idre.ucla.edu/r/dae/poisson-regression/)
+* [Negative Binomial Regressions | R data analysis examples](https://stats.idre.ucla.edu/r/dae/negative-binomial-regression/)

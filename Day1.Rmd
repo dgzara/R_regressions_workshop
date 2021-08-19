@@ -63,9 +63,7 @@ data$gender <- relevel(data$gender, ref = "male")
 ### Exercise 1
 Transform the variables `smoker` and `region` to factors. For the `smoker` variable, set `No` as the reference level.
 ```{r}
-data$smoker <- as.factor(data$smoker)
-data$region <- as.factor(data$region)
-data$smoker <- relevel(data$smoker, ref="no")
+
 ```
 
 ## 2. Analyze the dataset
@@ -194,32 +192,24 @@ Create four models by adding sequentially the following attributes: `children, g
 For each model, run the functions `summary`,`confint`, and `anova`.
 
 ```{r}
-model2 <- lm(charges ~ age + bmi + children, data)
-confint(model2)
-summary(model2)
+
 ```
 
 ```{r}
-model3 <- lm(charges ~ age + bmi + children + gender, data)
-confint(model3)
-summary(model3)
+
 ```
 
 ```{r}
-model4 <- lm(charges ~ age + bmi + children + gender + smoker, data)
-confint(model4)
-summary(model4)
+
 ```
 
 ```{r}
-model5 <- lm(charges ~ age + bmi + children + gender + smoker + region, data)
-confint(model5)
-summary(model5)
+
 ```
 
 Finally, compare all the models
 ```{r}
-anova(model0,model1,model2,model3,model4,model5)
+
 ```
 
 ### References and resources

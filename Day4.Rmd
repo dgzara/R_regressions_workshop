@@ -1,0 +1,252 @@
+---
+title: 'NU-IT Research Computing Services: Regression Models with R - Day 4'
+subtitle: By Diego Gomez-Zara
+output:
+  html_document:
+    df_print: paged
+---
+
+Today we will learn how to build logistic regression models using R. Logistic regressions are useful for *categorical responses*. The simplest categorical response is binary or dichotomous, such as pass/fail, win/lose, alive/dead or healthy/sick. The response may also have multiple categories, which can be nominal or ordinal. 
+
+While in *linear regressions* the model **estimates** a continuous value, *logistic regressions* **classifies** observations into one of several categorical outcomes. One example is fraud detection algorithms: they classify if an online credit card transaction as fraudulent or legitimate depending on the past transaction history of the customer, origination of transaction, etc.
+
+## 1. Import the datasets
+We will use new datasets for this session, since we need to predict categorical outcomes. 
+
+### The Admisions dataset.
+For the demo, we will use an [admissions dataset](https://stats.idre.ucla.edu/r/dae/logit-regression/). This dataset contains GRE (Graduate Record Exam scores), GPA (grade point average) and prestige of the undergraduate institution. The binary variable to predict is *admit/don't admit*.
+
+```{r}
+admissions <- read.csv("admissions.csv")
+```
+
+This dataset has a binary response variable called **admit.** There are three predictor variables: **gre**, **gpa** and **rank.** Variables **gre** and **gpa** as continuous. The variable **rank** takes on the values 1 through 4. Institutions with a rank of 1 have the highest prestige, while those with a rank of 4 have the lowest. Let's check the data.
+
+```{r}
+admissions
+```
+
+We can get basic descriptives for the entire data set by using summary. 
+
+```{r}
+summary(admissions)
+```
+
+We need to set the variable `rank` as factor, since it's not continuous. 
+
+```{r}
+admissions$rank <- as.factor(admissions$rank)
+```
+
+We check how many students in these dataset were admitted
+```{r}
+table(admissions$admit)
+```
+
+
+### Titanic dataset
+
+The [Titanic dataset](https://web.stanford.edu/class/archive/cs/cs109/cs109.1166/problem12.html) contains information for 887 of the real Titanic passengers. Each row represents one person. The columns describe different attributes about the person including whether they survived (`survived`), their age (`age`), their passenger-class (`ticket_class`), their gender (`gender`), the passenger's number of siblings and spouses on board (`sibsp`), the passenger's number of parents and children on board (`parch`), and the fare they paid (`fare`).
+
+```{r}
+titanic <- read.csv("titanic.csv")
+```
+
+Let's check the dataset
+```{r}
+titanic
+```
+
+
+We change the type of the predictor `gender` from `int` to `factor`. 
+
+```{r}
+titanic$gender <- as.factor(titanic$gender)
+```
+
+We check how many passangers in these dataset survived
+```{r}
+table(titanic$survived)
+```
+
+## 2. Creating Logistic Regressions
+
+Unlike linear regressions, logistic regressions do not assume that the data follows a normal distribution. Since the data is binary, we need to code the outcomes in terms of *probabilities.* If $y$ is coded as 1 for success and 0 for failure, then the expected value of $y$ denotes the probability of success $p$. After observing $n$ observations, the logistic regression model expects that $y$ follows a [binomial distribution](https://en.wikipedia.org/wiki/Binomial_distribution): each observation has a probability of success $p$.
+
+
+### Deviance
+Logistic regressions do not have the usual linear regression residuals ($y_{real}-y_{estimated}$). For that reason, we compare the proposed model with $p$ predictors to a saturated model (i.e., a model in which there are as many estimated parameters as observations). If the proposed model has a good fit, the deviance will be small. If the proposed model has a bad fit, the deviance will be high. 
+
+### Creating the model
+
+In R, we use the function `glm()` (generalized linear model) to calculate logistic regressions. Since this function considers different link functions and data distributions, we need to set the parameter `family = "binomial"`. 
+
+```{r}
+admissions.model <- glm(admit ~ gre + gpa + rank, data = admissions, family = "binomial")
+```
+
+We check the summary of the object `admissions.model`.
+
+```{r}
+summary(admissions.model)
+```
+
+We can break down the elements displayed here:
+* **Deviance Residuals**: The deviance residuals represent the contributions of individual samples to the deviance. R plots how they are distributed by showing the quartiles.  
+* **Coefficients**: The estimated values (calculated using the [Maximum Likelihood Estimator](https://en.wikipedia.org/wiki/Maximum_likelihood)), standard errors, and the significance test using the [Wald test](https://en.wikipedia.org/wiki/Wald_test). More details [here](https://stats.stackexchange.com/questions/60074/wald-test-for-logistic-regression).
+* **Null deviance**: The deviance of the null model (i.e., only the intercept)
+* **Residual deviance**: The deviance of the trained model. A low residual deviance implies that the model you have trained is appropriate.
+* **AIC**: The Akaike information criterion (AIC) is an information-theoretic measure that describes the quality of a model. The lower, the better.
+
+We calculate the confidence intervals:
+
+```{r}
+
+```
+
+### Exercise 1
+
+Create a logistic regression model using the function `glm()` with the the titanic dataset (`titanic`). Assign the model to the variable `titanic.model`. Remember to set the parameter `family="binomial"`.
+
+```{r}
+
+```
+
+Print the summary of the glm object `titanic.model`.
+```{r}
+
+```
+
+Print the confidence intervals of the glm object `titanic.model`.
+```{r}
+
+```
+
+## 3. Interpreting Odds ratios
+Given that logistic regressions handles probabilities of success ($y=1$) and failure ($y=0$), we analyze the ratio between the probability of success and the probability of failure. This is known as the **odds-ratio**. For example, if the probability of succeed is 0.8, then the probability of failure is 0.2. By computing the odds ratio, we have $0.8/0.2=4$. Therefore, the chances of success are 4 to 1. 
+
+In logistic regressions, the predictors' estimates ($\beta$) are in terms of *log-odds*. Changing one unit of a specific predictor $x$, it will change the log-odds of success in $\beta$. By calculating the exponent of each coefficient $\beta$, we get the odds ratio of success ($y=1$). In other words, $\exp(\beta)$ represents the increase or decrease of the odds of success when $x$ is increased by one unit. If the coefficient $\beta$ equals to zero, then $exp(\beta)=1$, which means that the odds of success do not change. For more details about this interpretation, click [here](https://stats.idre.ucla.edu/stata/faq/how-do-i-interpret-odds-ratios-in-logistic-regression/).
+
+Let's compute the odds-ratios of the admission model's coefficients.
+
+```{r}
+exp(coef(admissions.model))
+```
+The interpretation goes as follows:
+
+* The odds of being admitted increases 1.002 times for each one unit increase in `gre`.
+* The odds of being admitted increases 2.234 times for each one unit increase in `gpa`.
+* The odds of being admitted for students of `rank2` is 0.51 times that of students of `rank1` (decreases)
+* The odds of being admitted for students of `rank3` is 0.26 times that of students of `rank1` (decreases)
+* The odds of being admitted for students of `rank2` is 0.21 times that of students of `rank1` (decreases)
+
+### Exercise 2
+Compute the odds-ratios of the Titanic model. Interpret the odds-ratios:
+
+```{r}
+
+```
+
+
+## 4. Using the logistic regression for predictions
+
+Logistic regressions are commonly used for binary classification problems. Given a new set of observations, we want to use the model to predict their probabilities of success. We will create some observations and see how the probabilities of being admitted change according to the predictors.
+
+This dataset has 4 observations. While `gre` and `gpa` are constant, the institution ranks variates from 1 to 4. 
+```{r}
+admissions.new.data <- data.frame(gre = 500, gpa = 3.5, rank = factor(1:4))
+```
+
+We use the function `predict` to see the classification of these new observations. 
+```{r}
+probabilities <- predict(admissions.model, newdata = admissions.new.data, type = "response")
+probabilities
+```
+
+We can see the that the first observation (`rank = 1`) has the highest probability to be accepted, followed by `rank = 2`, `rank = 3`, and `rank = 4`. Individuals, with p above 0.5 (random guessing), are considered as diabetes-positive.
+
+The following R code categorizes these observations into two groups based on their predicted probabilities ($p$) of being admitted. Students with $p>0.5$ (random guessing) are considered as admitted:
+
+```{r}
+ifelse(probabilities > 0.5, "admitted", "not-admitted")
+```
+
+### Exercise 3
+Compute the probabilities for a new set of observations. Create three observations with the three ticket classes (`ticket_class = c(1:3)`) and keep the other variables constant (`gender = "female", age = 40, sibsp = 1, parch = 1, fare = 10`). 
+
+```{r}
+
+```
+
+Predict the estimated probabilities using the model `titanic.model`. What do the results tell us?
+```{r}
+
+```
+
+### Exercise 4
+Try again with a new set observations. This time, keep the following constant variables (`ticket_class = 1, gender = "female", sibsp = 1, parch = 1, fare = 10`) and create observations with a 10-year difference in ages (`age = seq(0,50,10)`).
+```{r}
+
+```
+
+Predict the estimated probabilities using the model `titanic.model`. What do the results tell us?
+```{r}
+
+```
+
+
+## 5. Evaluation
+A model accuracy is measured as the proportion of observations that have been correctly classified. Technically, we should create a training-testing to evaluate how good is the logistic regression model to predict *new* observations that were not considered in the model. For simplicity, we will use the entire dataset that was used for training.
+
+We check the predicted classifications against the real results and compute the confusion matrix.
+```{r}
+admissions.test.predict <- predict(admissions.model, newdata=admissions, type = "response")
+```
+
+We check how these probabilities are distributed
+```{r}
+hist(admissions.test.predict)
+```
+
+And we check how many of these classifications were correct by checking the confusion matrix.
+```{r}
+tab <- table(admissions$admit, admissions.test.predict>.50)
+tab
+```
+
+We can see here that the model predicted correctly 254 not-admitted students and 30 admitted students. However, the model predicted incorrectly 19 admitted students (False positives, Type I Error), and 97 not-admitted students (False negatives, Type II Error). From the confusion matrix, we can calculate the *correct classification rate* (CCR):
+
+```{r}
+ccr <- sum(diag(tab))/sum(tab)
+ccr
+```
+71% of the classifications were correctly done.
+
+### Exercise 5
+Check how good is the logistic regression model `titanic.model` by using the original dataset `titanic.model` to predict the probabilities of survival ($y=1$). 
+```{r}
+
+```
+
+Plot the histogram of these probabilities
+```{r}
+
+```
+
+Create the confusion matrix and assign it to the variable `tab`. Remember to update the model and the probabilities vector. How many observations were correctly classified?
+```{r}
+
+```
+
+Finally, compute the correct classification rate:
+```{r}
+
+```
+
+## Resources
+* [Tamhane, A. C. (2020). Predictive Analytics: Parametric Models for Regression and Classification Using R. John Wiley & Sons.](https://onlinelibrary-wiley-com.turing.library.northwestern.edu/doi/book/10.1002/9781119464761)
+* [UCLA: Statistical Consulting Group](https://stats.idre.ucla.edu/r/dae/logit-regression/)
+* [Logistic Regression Essentials in R](http://www.sthda.com/english/articles/36-classification-methods-essentials/151-logistic-regression-essentials-in-r/#making-predictions)
+
+
+

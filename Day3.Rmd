@@ -11,7 +11,7 @@ We will use two examples to illustrate the methods presented in this session.
 1. **Healthcare**: This dataset has 6 predictors and a target column (`charges`). There are some categorical predictors that did not increase the coefficient of determination. We will check which subset is the best to predict individuals' charges.
 2. **Wine dataset**: It has 12 predictors and a target column (`quality`). It is very likely that some predictors depend among each other. Your goal is to find a small subset of columns that provide a good predictive model. 
 
-Given $m$ variables in a dataset, we can *add* or *remove* a predictor in the linear regresison model. Therefore, we can build $2^m-1$ models excluding the null model (no predcitors). For example, we can build $2^{12}-1=4095$ models for the wine dataset. 
+Given $m$ variables in a dataset, we can *add* or *remove* a predictor in the linear regression model. Therefore, we can build $2^m-1$ models excluding the null model (no predictors). For example, we can build $2^{12}-1=4095$ models for the wine dataset. 
 
 
 ```{r message=FALSE,results='hide'}
@@ -21,7 +21,7 @@ library(car)
 library(meifly)
 ```
 
-We load the Healthcare insurace dataset as `health.data`.
+We load the Healthcare insurance dataset as `health.data`.
 ```{r}
 health.data <- read.csv("insurance.csv")
 health.data$gender <- as.factor(health.data$gender)
@@ -68,7 +68,7 @@ The package `leaps` provides a plot with the variables selected and their respec
 plot(regsubsets.out, scale = "adjr2", main = "Adjusted R^2")
 ```
 
-Another way of presenting the same information for adjusted $R^2$. The model with variables (counting dummy variables seprately) at the highest y-position has the highest adjusted $R^2$.
+Another way of presenting the same information for adjusted $R^2$. The model with variables (counting dummy variables separately) at the highest y-position has the highest adjusted $R^2$.
 
 ```{r}
 subsets(regsubsets.out, statistic="adjr2", legend = FALSE, min.size = 5, main = "Adjusted R^2")
@@ -101,7 +101,7 @@ summary(best.model)
 
 ### Exercise 1
 
-Find the best model for the `wine.data` using the function `regsubsets()`. Assign the results to the variable `regsubsets.out.` 
+Find the best model for the `wine.data` using the function `regsubsets()`. Assign the results to the variable `regsubsets.out` 
 
 ```{r}
 
@@ -119,7 +119,7 @@ Plot the Adjusted $R^2$ from `regsubsets.out` using `scale = "adjr2`.
 
 ```
 
-Identify the model with the hightest adj $R^2$. You can use the function `which.max()` on `summary.out$adjr2`
+Identify the model with the highest adj $R^2$. You can use the function `which.max()` on `summary.out$adjr2`
 
 ```{r}
 
@@ -227,7 +227,7 @@ backward.selection <- step(lm(log(charges) ~ ., health.data), direction="backwar
 
 No variables were removed. The full model has $AIC=-2162.05$ and the model without the variable `gender` has $AIC=-2154.46$ The lower the better ($-2162.05 < -2154.46$), so the method selects the full model as the best.
 
-We will try now the **forward stepwise selection**. Here, we start with the null model and start adding variables until finding the lowest *AIC*. We create a null model `min.model` using only the intercept (`lm(log(charges) ~ 1, health.data)`). We need to give a reference to the method, so we add the formula of the full moder in paramater `scope`.
+We will try now the **forward stepwise selection**. Here, we start with the null model and start adding variables until finding the lowest *AIC*. We create a null model `min.model` using only the intercept (`lm(log(charges) ~ 1, health.data)`). We need to give a reference to the method, so we add the formula of the full model in parameter `scope`.
 
 ```{r}
 min.model <- lm(log(charges) ~ 1, health.data)
